@@ -53,7 +53,6 @@ jobs:
           cargo tarpaulin \
             --engine llvm \
             --follow-exec \
-            --all-features \
             --timeout 120 \
             --out xml \
             --output-dir coverage-reports \
