@@ -1,0 +1,27 @@
+[package]
+name = "etag-actix-middleware"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85.0"
+authors = ["Emanuele Panigati <ilpanich@gmail.com>"]
+description = "Yet another actix-web middleware for managing ETag, If-Match and If-None-Match headers"
+keywords = ["actix-web", "middleware", "etag", "if-match", "if-none-match"]
+repository = "https://github.com/ilpanich/etag-actix-middleware"
+documentation = "https://docs.rs/etag-actix-middleware"
+license = "Apache-2.0"
+readme = "../README.md"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+actix-web = "4.11.0"
+crc32fast = "1.5.0"
+futures-util = "0.3.31"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
