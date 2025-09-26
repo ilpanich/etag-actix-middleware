@@ -1,0 +1,26 @@
+name: OSV-Scanner
+
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    tags:
+      - "*" # triggers only if push new tag version, like `0.8.4` or else
+  schedule:
+    - cron: "45 23 * * 2"
+
+permissions:
+  # Required to upload SARIF file to CodeQL. See: https://github.com/github/codeql-action/issues/2117
+  actions: read
+  # Require writing security events to upload SARIF file to security tab
+  security-events: write
+  # to fetch code (actions/checkout)
+  contents: read
+
+jobs:
+  osv-scan:
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.0.0"
+    with:
+      scan-args: |-
+        -r
+        ./
