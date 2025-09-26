@@ -25,5 +25,7 @@ AGENTS.md
 
 
 # Added by cargo
-
 /target
+
+# Coverage reports
+coverage-reports
