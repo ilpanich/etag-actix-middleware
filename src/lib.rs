@@ -60,7 +60,8 @@ use actix_web::{
 use futures_util::future::{LocalBoxFuture, Ready, ok};
 use std::rc::Rc;
 
-use crc32fast::Hasher;
+use base64::Engine;
+use xxhash_rust::xxh3::xxh3_128;
 
 /// Middleware that injects ETag headers and evaluates conditional requests.
 ///
@@ -250,13 +251,12 @@ fn match_if_none_match(etag: &str, header_value: &str) -> bool {
 }
 
 fn build_entity_tag(body: &Bytes, strength: Strength) -> String {
-    let mut hasher = Hasher::new();
-    hasher.update(body);
-    let digest = format!("{:x}", hasher.finalize());
+    let response_hash = xxh3_128(&body);
+    let base64 = base64::prelude::BASE64_URL_SAFE.encode(response_hash.to_le_bytes());
 
     match strength {
-        Strength::Strong => format!("\"{}\"", digest),
-        Strength::Weak => format!("W/\"{}\"", digest),
+        Strength::Strong => format!("\"{:x}-{}\"", base64.len(), base64),
+        Strength::Weak => format!("W/\"{:x}-{}\"", base64.len(), base64),
     }
 }
 
