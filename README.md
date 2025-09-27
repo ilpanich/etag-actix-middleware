@@ -42,3 +42,14 @@ The core implementation lives in `src/lib.rs`. Tests under `#[cfg(test)]` exerci
 ## Notes
 - The middleware buffers the full body to compute its hash. For streaming or very large responses, consider splitting those routes into dedicated services or extending the crate with a configurable hashing strategy.
 - Weak ETags (`W/""`) from upstream handlers are respected but interpreted in a strong comparison when evaluating `If-None-Match` to keep cache behavior predictable.
+
+## Credits
+For some implementation I took inspiration from an existing middleware (unfortunately not working properly with my code): [actix-middleware-etag](https://github.com/Unleash/actix-middleware-etag)
+
+## Support the project
+Since I work as developer and manager during the day, I will develop this project during the night and weekends, once I have time.
+If you want to support the project bringing me a coffee to keep me awake and coding, you can do it by clicking the link below:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/ilpanich)
+
+Thank you for your support!
