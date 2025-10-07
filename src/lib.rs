@@ -251,7 +251,7 @@ fn match_if_none_match(etag: &str, header_value: &str) -> bool {
 }
 
 fn build_entity_tag(body: &Bytes, strength: Strength) -> String {
-    let response_hash = xxh3_128(&body);
+    let response_hash = xxh3_128(body);
     let base64 = base64::prelude::BASE64_URL_SAFE.encode(response_hash.to_le_bytes());
 
     match strength {
