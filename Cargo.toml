@@ -15,7 +15,7 @@ readme = "README.md"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-actix-web = "4.11.0"
+actix-web = "4.12.1"
 base64 = "0.22.1"
 futures-util = "0.3.31"
 xxhash-rust = { version = "0.8.15", features = ["xxh3"] }
