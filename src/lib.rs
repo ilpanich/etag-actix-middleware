@@ -446,4 +446,228 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::PRECONDITION_FAILED);
     }
+
+    #[actix_web::test]
+    async fn new_method_creates_strong_etag_middleware() {
+        let app = init_service(App::new().wrap(ETag::new()).route(
+            "/",
+            web::get().to(|| async { HttpResponse::Ok().body("hello") }),
+        ))
+        .await;
+
+        let response: ServiceResponse =
+            call_service(&app, TestRequest::get().uri("/").to_request()).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let value = response.headers().get(header::ETAG).unwrap();
+        assert_eq!(
+            value.to_str().unwrap(),
+            expected_etag(b"hello", Strength::Strong)
+        );
+        assert!(!value.to_str().unwrap().starts_with("W/"));
+    }
+
+    #[actix_web::test]
+    async fn default_trait_creates_strong_etag_middleware() {
+        let app = init_service(App::new().wrap(ETag::default()).route(
+            "/",
+            web::get().to(|| async { HttpResponse::Ok().body("hello") }),
+        ))
+        .await;
+
+        let response: ServiceResponse =
+            call_service(&app, TestRequest::get().uri("/").to_request()).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let value = response.headers().get(header::ETAG).unwrap();
+        assert_eq!(
+            value.to_str().unwrap(),
+            expected_etag(b"hello", Strength::Strong)
+        );
+        assert!(!value.to_str().unwrap().starts_with("W/"));
+    }
+
+    #[actix_web::test]
+    async fn if_none_match_with_post_returns_precondition_failed() {
+        let etag = expected_etag(b"hello", Strength::Strong);
+        let app = init_service(App::new().wrap(ETag::strong()).route(
+            "/",
+            web::post().to(|| async { HttpResponse::Ok().body("hello") }),
+        ))
+        .await;
+
+        let request = TestRequest::post()
+            .uri("/")
+            .insert_header((header::IF_NONE_MATCH, etag.clone()))
+            .to_request();
+        let response: ServiceResponse = call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::PRECONDITION_FAILED);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::ETAG)
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            etag
+        );
+    }
+
+    #[actix_web::test]
+    async fn if_none_match_with_put_returns_precondition_failed() {
+        let etag = expected_etag(b"hello", Strength::Strong);
+        let app = init_service(App::new().wrap(ETag::strong()).route(
+            "/",
+            web::put().to(|| async { HttpResponse::Ok().body("hello") }),
+        ))
+        .await;
+
+        let request = TestRequest::put()
+            .uri("/")
+            .insert_header((header::IF_NONE_MATCH, etag.clone()))
+            .to_request();
+        let response: ServiceResponse = call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::PRECONDITION_FAILED);
+    }
+
+    #[actix_web::test]
+    async fn if_none_match_with_wildcard_matches_any_etag() {
+        let app = init_service(App::new().wrap(ETag::strong()).route(
+            "/",
+            web::get().to(|| async { HttpResponse::Ok().body("hello") }),
+        ))
+        .await;
+
+        let request = TestRequest::get()
+            .uri("/")
+            .insert_header((header::IF_NONE_MATCH, "*"))
+            .to_request();
+        let response: ServiceResponse = call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+        assert!(response.headers().contains_key(header::ETAG));
+    }
+
+    #[actix_web::test]
+    async fn if_match_with_wildcard_matches_any_etag() {
+        let app = init_service(App::new().wrap(ETag::strong()).route(
+            "/",
+            web::get().to(|| async { HttpResponse::Ok().body("hello") }),
+        ))
+        .await;
+
+        let request = TestRequest::get()
+            .uri("/")
+            .insert_header((header::IF_MATCH, "*"))
+            .to_request();
+        let response: ServiceResponse = call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(response.headers().contains_key(header::ETAG));
+    }
+
+    #[actix_web::test]
+    async fn preserves_handler_set_etag() {
+        let custom_etag = "\"custom-etag-12345\"";
+        let app = init_service(App::new().wrap(ETag::strong()).route(
+            "/",
+            web::get().to(|| async {
+                HttpResponse::Ok()
+                    .insert_header((header::ETAG, "\"custom-etag-12345\""))
+                    .body("hello")
+            }),
+        ))
+        .await;
+
+        let response: ServiceResponse =
+            call_service(&app, TestRequest::get().uri("/").to_request()).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(header::ETAG)
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            custom_etag
+        );
+    }
+
+    #[actix_web::test]
+    async fn if_none_match_matches_handler_set_etag() {
+        let custom_etag = "\"custom-etag-12345\"";
+        let app = init_service(App::new().wrap(ETag::strong()).route(
+            "/",
+            web::get().to(|| async {
+                HttpResponse::Ok()
+                    .insert_header((header::ETAG, "\"custom-etag-12345\""))
+                    .body("hello")
+            }),
+        ))
+        .await;
+
+        let request = TestRequest::get()
+            .uri("/")
+            .insert_header((header::IF_NONE_MATCH, custom_etag))
+            .to_request();
+        let response: ServiceResponse = call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+    }
+
+    #[actix_web::test]
+    async fn multiple_etags_in_if_none_match() {
+        let etag = expected_etag(b"hello", Strength::Strong);
+        let app = init_service(App::new().wrap(ETag::strong()).route(
+            "/",
+            web::get().to(|| async { HttpResponse::Ok().body("hello") }),
+        ))
+        .await;
+
+        let multiple_etags = format!("\"other-etag\", {}, \"another-etag\"", etag);
+        let request = TestRequest::get()
+            .uri("/")
+            .insert_header((header::IF_NONE_MATCH, multiple_etags))
+            .to_request();
+        let response: ServiceResponse = call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::NOT_MODIFIED);
+    }
+
+    #[actix_web::test]
+    async fn multiple_etags_in_if_match_with_match() {
+        let etag = expected_etag(b"hello", Strength::Strong);
+        let app = init_service(App::new().wrap(ETag::strong()).route(
+            "/",
+            web::get().to(|| async { HttpResponse::Ok().body("hello") }),
+        ))
+        .await;
+
+        let multiple_etags = format!("\"other-etag\", {}, \"another-etag\"", etag);
+        let request = TestRequest::get()
+            .uri("/")
+            .insert_header((header::IF_MATCH, multiple_etags))
+            .to_request();
+        let response: ServiceResponse = call_service(&app, request).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[actix_web::test]
+    async fn response_without_precondition_headers_passes_through() {
+        let app = init_service(App::new().wrap(ETag::strong()).route(
+            "/",
+            web::get().to(|| async { HttpResponse::Ok().body("hello") }),
+        ))
+        .await;
+
+        let response: ServiceResponse =
+            call_service(&app, TestRequest::get().uri("/").to_request()).await;
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(response.headers().contains_key(header::ETAG));
+    }
 }
